@@ -1182,7 +1182,7 @@ void Dashboard::draw_header(gfx::DrawList & list) const {
     list.push_opacity(in);
     const float y = 124 - 10.0f * (1.0f - in);
     float       w = ui::text(list, fonts_.display, "PS5LM", kGridX - 3, y, 56, kInk);
-    w += ui::text(list, fonts_.display, " Plus", kGridX - 3 + w, y, 56, kBrand);
+    w += ui::text(list, fonts_.display, " Plus Plus", kGridX - 3 + w, y, 56, kBrand);
     std::string sub = "v" PS5LM_VERSION "  \xC2\xB7  " + live_.address;
     ui::text(list, fonts_.regular, sub, kGridX + w + 24, y, 24, kInk.with_alpha(kMuted));
 
@@ -1416,7 +1416,7 @@ void Dashboard::draw_usage_details(gfx::DrawList & list, const Rect & panel) con
     const bool serving = L.state == ServerState::ready || L.state == ServerState::generating;
     char text[96];
     caps(list, f, "USAGE", panel.x + 56, panel.y + 60, 20, kCyan);
-    ui::text(list, f.regular, "What the console is doing for PS5LM Plus, over the last two minutes.", panel.x + 56,
+    ui::text(list, f.regular, "What the console is doing for PS5LM Plus Plus, over the last two minutes.", panel.x + 56,
              panel.y + 96, 20, kInk.with_alpha(kMuted));
 
     const float x0 = panel.x + 56, colw = (panel.w - 112 - 48) * 0.5f, x1 = x0 + colw + 48;
@@ -2157,14 +2157,14 @@ void Dashboard::draw_storage(gfx::DrawList & list) const {
     draw_panel(list, d, 28, 1.0f, kAmber);
     const float x = d.x + 56, w = d.w - 112;
     caps(list, f, "STORAGE", x, d.y + 64, 17, kAmber);
-    ui::text(list, f.semibold, "PS5LM Plus cannot reach this console's storage", x, d.y + 112, 34, kInk);
+    ui::text(list, f.semibold, "PS5LM Plus Plus cannot reach this console's storage", x, d.y + 112, 34, kInk);
     const std::string why = "Nothing on this console opened /data to the app" +
                             (storage_firmware_.empty() ? std::string() : " (firmware " + storage_firmware_ + ")") +
                             ". Choose how to go on.";
     ui::text(list, f.regular, why, x, d.y + 150, 21, kInk.with_alpha(kMuted));
     const std::string tid = storage_title_;
     const std::string options[2][4] = {
-        { "Get full storage, then open PS5LM Plus again",
+        { "Get full storage, then open PS5LM Plus Plus again",
           "Full access: internal storage, USB and M.2 drives, and downloads to any of them.",
           "ShadowMountPlus v1.7-beta5fix1 opens /data and USB to homebrew itself: update an older one.",
           "Or with OnionHEN, add " + tid + " to app_jailbreak.exact_title_ids in /data/OnionHEN/config.ini." },
