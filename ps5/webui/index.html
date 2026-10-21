@@ -91,7 +91,7 @@
 
 <div class="composer">
   <form id="form">
-    <input id="input" type="text" autocomplete="off" placeholder="Message">
+    <input id="input" type="text" autocomplete="off" placeholder="Message or /compact">
     <button id="send" type="submit">Send</button>
   </form>
 </div>
@@ -116,6 +116,117 @@
   var send = document.getElementById('send');
   var messages = [];
   var xhr = null;
+  var CONTEXT_THRESHOLD = 10;
+  var COMPACT_PROMPT =
+    'You are a high-density state compaction engine. Summarize the preceding conversation into an ultra-dense, token-efficient state snapshot.\n' +
+    'Structure your response strictly with these sections:\n' +
+    '- Global Goal: concise primary objective\n' +
+    '- Technical Choices: core architecture and decisions\n' +
+    '- Touched Files: modified files and components\n' +
+    '- Changes Status: what is done vs pending\n' +
+    '- Next Steps: immediate next actions\n' +
+    'STRICT CONSTRAINTS:\n' +
+    '- Maximum token efficiency. Zero conversational filler, zero chit-chat, no pleasantries.\n' +
+    '- NEVER repeat full code blocks. Use brief symbol/identifier references only.';
+
+  function compact(onDone) {
+    if (messages.length === 0) {
+      var out = add('bot');
+      var note = document.createElement('span');
+      note.className = 'meta';
+      note.textContent = 'Active history is empty. Nothing to compact.';
+      out.appendChild(note);
+      bottom();
+      input.focus();
+      if (onDone) onDone();
+      return;
+    }
+
+    var out = add('bot');
+    var badge = document.createElement('span');
+    badge.className = 'meta';
+    badge.style.color = 'var(--accent)';
+    badge.textContent = '⚡ Compacting conversation context...';
+    out.appendChild(badge);
+
+    var body = document.createTextNode('');
+    var caret = document.createElement('span');
+    caret.className = 'caret';
+    out.appendChild(body);
+    out.appendChild(caret);
+    bottom();
+
+    var answer = '', seen = 0, pending = '';
+    xhr = new XMLHttpRequest();
+    xhr.open('POST', '/v1/chat/completions');
+    xhr.setRequestHeader('Content-Type', 'application/json');
+
+    xhr.onprogress = function () {
+      pending += xhr.responseText.substring(seen);
+      seen = xhr.responseText.length;
+      var lines = pending.split('\n');
+      pending = lines.pop();
+      for (var i = 0; i < lines.length; i++) {
+        var line = lines[i].replace(/^\s+|\s+$/g, '');
+        if (line.indexOf('data:') !== 0) continue;
+        var data = line.substring(5).replace(/^\s+/, '');
+        if (data === '[DONE]') continue;
+        var chunk;
+        try { chunk = JSON.parse(data); } catch (e) { continue; }
+        var delta = chunk.choices && chunk.choices[0] && chunk.choices[0].delta;
+        if (delta && delta.content) {
+          answer += delta.content;
+          body.nodeValue = answer;
+        }
+        if (chunk.timings) {
+          var meta = document.createElement('span');
+          meta.className = 'meta';
+          meta.textContent = 'Compacted into ' + chunk.timings.predicted_n + ' tokens (' +
+            chunk.timings.predicted_per_second.toFixed(1) + ' tok/s)';
+          out.appendChild(meta);
+        }
+        bottom();
+      }
+    };
+
+    xhr.onloadend = function () {
+      xhr.onprogress();
+      if (caret.parentNode) caret.parentNode.removeChild(caret);
+      if (!answer) {
+        var err = document.createElement('span');
+        err.className = 'error';
+        err.textContent = xhr.status === 0 ? 'Compaction stopped.' :
+          'Compaction failed (' + xhr.status + ').';
+        out.appendChild(err);
+      } else {
+        // Spec 3: Purge & Re-injection (In-place swap)
+        messages = [
+          { role: 'user', content: '[Session State Snapshot]\n' + answer },
+          { role: 'assistant', content: 'Context state compacted and acknowledged. Ready for next instructions.' }
+        ];
+        var doneMeta = document.createElement('span');
+        doneMeta.className = 'meta';
+        doneMeta.style.color = 'var(--accent)';
+        doneMeta.textContent = '✓ Prior context purged. Replaced with state snapshot.';
+        out.appendChild(doneMeta);
+      }
+      xhr = null;
+      busy(false);
+      bottom();
+      input.focus();
+      if (onDone) onDone();
+    };
+
+    xhr.send(JSON.stringify({
+      messages: [{ role: 'system', content: COMPACT_PROMPT }]
+        .concat(messages)
+        .concat([{ role: 'user', content: 'Generate the ultra-dense state summary now. Do not reproduce full code.' }]),
+      stream: true,
+      max_tokens: 384,
+      chat_template_kwargs: { enable_thinking: false }
+    }));
+    busy(true);
+  }
 
   // ps5lm.elf serves its model library on port 8082.
   document.getElementById('models').href = 'http://' + location.hostname + ':8082/';
@@ -148,8 +259,26 @@
   }
 
   function ask(text) {
+    // Intercept /compact command
+    if (text === '/compact' || text.toLowerCase() === '/compact') {
+      var mine = add('me');
+      var box = document.createElement('div');
+      box.textContent = text;
+      mine.appendChild(box);
+      compact();
+      return;
+    }
+
+    // Auto-compact when context threshold approaches PS5 limits
+    if (messages.length >= CONTEXT_THRESHOLD) {
+      compact(function () {
+        ask(text);
+      });
+      return;
+    }
+
     messages.push({ role: 'user', content: text });
-    if (messages.length > 12) messages = messages.slice(messages.length - 12);
+    if (messages.length > CONTEXT_THRESHOLD + 4) messages = messages.slice(messages.length - (CONTEXT_THRESHOLD + 4));
 
     var mine = add('me');
     var box = document.createElement('div');
