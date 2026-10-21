@@ -248,9 +248,16 @@ int accept4(int s, struct sockaddr *restrict addr, socklen_t *restrict addrlen, 
     const int fd = accept(s, addr, addrlen);
     if (fd < 0) {
         const int saved = errno;
-        fprintf(stderr, "ps5lm-app: accept failed, errno %d\n", saved);
+        if (saved != EAGAIN && saved != EWOULDBLOCK && saved != EINTR) {
+            fprintf(stderr, "ps5lm-app: accept failed, errno %d\n", saved);
+        }
         errno = saved;
         return fd;
+    }
+    if (flags & SOCK_CLOEXEC) {
+        const int fl = fcntl(fd, F_GETFD);
+        if (fl != -1)
+            (void)fcntl(fd, F_SETFD, fl | FD_CLOEXEC);
     }
     if (flags & SOCK_NONBLOCK) {
         const int fl = fcntl(fd, F_GETFL);

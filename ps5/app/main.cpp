@@ -21,6 +21,7 @@
 #include <sys/statvfs.h>
 #include <sys/sysctl.h>
 #include <unistd.h>
+#include <csignal>
 
 #include <algorithm>
 #include <atomic>
@@ -848,6 +849,7 @@ bool load_font(hui::gfx::Renderer & renderer, const char * name, hui::gfx::Font 
 }  // namespace
 
 int main(int, char **) {
+    signal(SIGPIPE, SIG_IGN);
     // /data first: the log, the settings and the model to load live there.
     const std::string data = open_data();
     set_dir(data.rfind("closed", 0) == 0 ? "/download0/PS5LM" : "/data/PS5LM");

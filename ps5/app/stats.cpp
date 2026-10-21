@@ -147,8 +147,12 @@ std::string http_get(int port, const char * path, int timeout_s) {
     setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
     setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
     sockaddr_in addr = {};
-#ifdef __FreeBSD__
+#if defined(__FreeBSD__) || defined(__PROSPERO__)
     addr.sin_len = sizeof(addr);
+#endif
+#ifdef SO_NOSIGPIPE
+    int nosigpipe = 1;
+    setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &nosigpipe, sizeof(nosigpipe));
 #endif
     addr.sin_family      = AF_INET;
     addr.sin_port        = htons((uint16_t) port);
@@ -192,8 +196,12 @@ bool send_payload(const char * path, int port) {
     }
     const int fd = socket(AF_INET, SOCK_STREAM, 0);
     sockaddr_in to = {};
-#ifdef __FreeBSD__
+#if defined(__FreeBSD__) || defined(__PROSPERO__)
     to.sin_len = sizeof(to);
+#endif
+#ifdef SO_NOSIGPIPE
+    int nosigpipe = 1;
+    setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &nosigpipe, sizeof(nosigpipe));
 #endif
     to.sin_family = AF_INET;
     to.sin_port   = htons((uint16_t) port);
@@ -213,8 +221,12 @@ bool send_payload(const char * path, int port) {
 bool port_open(int port) {
     const int fd = socket(AF_INET, SOCK_STREAM, 0);
     sockaddr_in to = {};
-#ifdef __FreeBSD__
+#if defined(__FreeBSD__) || defined(__PROSPERO__)
     to.sin_len = sizeof(to);
+#endif
+#ifdef SO_NOSIGPIPE
+    int nosigpipe = 1;
+    setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &nosigpipe, sizeof(nosigpipe));
 #endif
     to.sin_family = AF_INET;
     to.sin_port   = htons((uint16_t) port);
@@ -232,7 +244,7 @@ std::string local_address() {
         return {};
     }
     sockaddr_in to = {};
-#ifdef __FreeBSD__
+#if defined(__FreeBSD__) || defined(__PROSPERO__)
     to.sin_len = sizeof(to);
 #endif
     to.sin_family = AF_INET;
@@ -371,10 +383,12 @@ void StatsCollector::run() {
             p = http_get(9100, "/metrics");
             // Not running: hand the bundled copy to elfldr, at start and then
             // once a minute (elfldr may come later).
-            if (p.empty() && (long) (wall - start) % 60 == 1) {
+            static int exporter_attempts = 0;
+            if (p.empty() && exporter_attempts < 3 && (long) (wall - start) % 60 == 1) {
+                exporter_attempts++;
                 const bool sent = send_payload("/app0/payloads/ps5-exporter.elf", 9021);
-                std::printf("ps5lm-app: ps5-exporter not running; %s\n",
-                            sent ? "sent the bundled copy to elfldr" : "no elfldr on 9021 to load it");
+                std::printf("ps5lm-app: ps5-exporter not running; %s (attempt %d/3)\n",
+                            sent ? "sent the bundled copy to elfldr" : "no elfldr on 9021 to load it", exporter_attempts);
             }
             if (!p.empty()) {
                 from_exporter = true;
