@@ -377,7 +377,8 @@ Plan plan_model(const ModelInfo & m, double budget_gib, uint32_t ctx_cap, const 
                // One prompt checkpoint and no RAM cache: llama-server's defaults
                // (32 checkpoints, 8 GiB) are for a PC, and the CPU shares this pool.
                "-ctxcp", "1", "-cram", "0",
-               "--host", "0.0.0.0", "--port", "8081" };
+               "--host", "0.0.0.0", "--port", "8081",
+               "--timeout", "0" };
     if (!m.mmproj.empty()) {
         p.args.insert(p.args.end(), { "--mmproj", m.mmproj });
     }

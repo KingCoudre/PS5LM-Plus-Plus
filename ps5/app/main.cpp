@@ -97,6 +97,7 @@ int sceSystemServiceHideSplashScreen(void);
 int sceKernelSendNotificationRequest(uint32_t device, void * request, size_t size, int blocking);
 int sceKernelUsleep(uint32_t microseconds);
 int sceSystemServiceLoadExec(const char * path, const char * const * args);
+__attribute__((weak)) int sceShellCoreUtilResetAutoPowerDownTimer(void);
 }
 
 namespace {
@@ -786,6 +787,9 @@ struct Models {
         if (std::find(args.begin(), args.end(), "--metrics") == args.end()) {
             args.push_back("--metrics");
         }
+        if (std::find(args.begin(), args.end(), "--timeout") == args.end()) {
+            args.insert(args.end(), { "--timeout", "0" });
+        }
         // The browser chat's file tools, confined to the scratch folder by
         // patches/0003 (LLAMA_TOOLS_ROOT) and working there by default.
         if (settings.tools && std::find(args.begin(), args.end(), "--tools") == args.end()) {
@@ -1272,6 +1276,12 @@ int main(int, char **) {
         }
         if (n % 60 == 0) {
             quit_if_asked();
+        }
+        if (n % 600 == 0) {
+            // Keep console awake 24/7 by resetting the idle power-down / sleep timer
+            if (sceShellCoreUtilResetAutoPowerDownTimer) {
+                sceShellCoreUtilResetAutoPowerDownTimer();
+            }
         }
     }
 }
